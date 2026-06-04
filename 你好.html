@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ 留言墙 · 留下你的足迹</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .message-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        .message-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .float-anim {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .input-focus:focus {
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+        
+        .delete-btn {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .message-card:hover .delete-btn {
+            opacity: 1;
+        }
+        
+        .empty-state {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        
+        .scroll-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            z-index: 50;
+            transition: width 0.1s;
+        }
+        
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            opacity: 0.6;
+            animation: particleFloat 15s infinite linear;
+        }
+        
+        @keyframes particleFloat {
+            from { transform: translateY(100vh) rotate(0deg); }
+            to { transform: translateY(-100px) rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="relative overflow-x-hidden">
+
+    <!-- 滚动进度条 -->
+    <div class="scroll-indicator" id="scrollBar"></div>
+
+    <!-- 背景粒子 -->
+    <div id="particles"></div>
+
+    <!-- 主容器 -->
+    <div class="container mx-auto px-4 py-8 max-w-5xl relative z-10">
+
+        <!-- 头部 -->
+        <header class="text-center mb-12 pt-8">
+            <div class="float-anim inline-block mb-4">
+                <span class="text-6xl">💌</span>
+            </div>
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
+                留言墙
+            </h1>
+            <p class="text-white/80 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                在这里留下你想对我说的话吧！无论是祝福、建议还是碎碎念，每一条留言我都会珍惜 💜
+            </p>
+            <div class="mt-6 flex justify-center gap-4 text-white/70 text-sm">
+                <span class="flex items-center gap-1">📬 已有 <strong id="msgCount" class="text-white text-lg">0</strong> 条留言</span>
+                <span>|</span>
+                <span class="flex items-center gap-1">⏰ <span id="currentTime"></span></span>
+            </div>
+        </header>
+
+        <!-- 留言输入区 -->
+        <div class="glass-card rounded-3xl p-6 md:p-8 mb-10 shadow-2xl">
+            <h2 class="text-2xl font-bold gradient-text mb-6 flex items-center gap-2">
+                <span>✏️</span> 写留言
+            </h2>
+            
+            <form id="messageForm" class="space-y-5">
+                <div class="grid md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-gray-600 text-sm font-medium mb-2">你的名字</label>
+                        <input 
+                            type="text" 
+                            id="authorName" 
+                            placeholder="怎么称呼你？" 
+                            maxlength="20"
+                            required
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 input-focus outline-none transition-all bg-white/50"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-gray-600 text-sm font-medium mb-2">选择颜色</label>
+                        <div class="flex gap-3 flex-wrap" id="colorPicker">
+                            <button type="button" data-color="purple" class="color-btn w-10 h-10 rounded-full bg-purple-100 border-2 border-purple-400 shadow-sm hover:scale-110 transition-transform ring-2 ring-offset-2 ring-purple-400"></button>
+                            <button type="button" data-color="blue" class="color-btn w-10 h-10 rounded-full bg-blue-100 border-2 border-blue-400 shadow-sm hover:scale-110 transition-transform"></button>
+                            <button type="button" data-color="pink" class="color-btn w-10 h-10 rounded-full bg-pink-100 border-2 border-pink-400 shadow-sm hover:scale-110 transition-transform"></button>
+                            <button type="button" data-color="green" class="color-btn w-10 h-10 rounded-full bg-green-100 border-2 border-green-400 shadow-sm hover:scale-110 transition-transform"></button>
+                            <button type="button" data-color="orange" class="color-btn w-10 h-10 rounded-full bg-orange-100 border-2 border-orange-400 shadow-sm hover:scale-110 transition-transform"></button>
+                            <button type="button" data-color="yellow" class="color-btn w-10 h-10 rounded-full bg-yellow-100 border-2 border-yellow-400 shadow-sm hover:scale-110 transition-transform"></button>
+                        </div>
+                        <input type="hidden" id="selectedColor" value="purple">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-600 text-sm font-medium mb-2">留言内容</label>
+                    <textarea 
+                        id="messageContent" 
+                        rows="4" 
+                        placeholder="想对我说点什么...（支持换行）" 
+                        maxlength="500"
+                        required
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 input-focus outline-none transition-all resize-none bg-white/50"
+                    ></textarea>
+                    <div class="text-right text-xs text-gray-400 mt-1">
+                        <span id="charCount">0</span>/500
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <input type="checkbox" id="isPrivate" class="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                        <label for="isPrivate" class="cursor-pointer select-none">仅自己可见（需要密码查看）</label>
+                    </div>
+                    <button 
+                        type="submit" 
+                        class="btn-primary text-white px-8 py-3 rounded-xl font-medium text-lg shadow-lg flex items-center gap-2"
+                    >
+                        <span>🚀</span> 发布留言
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 筛选标签 -->
+        <div class="flex justify-center gap-3 mb-8 flex-wrap">
+            <button class="filter-btn active px-5 py-2 rounded-full bg-white/90 text-purple-700 font-medium shadow-md transition-all hover:shadow-lg" data-filter="all">
+                全部留言
+            </button>
+            <button class="filter-btn px-5 py-2 rounded-full bg-white/40 text-white font-medium shadow-md transition-all hover:bg-white/60" data-filter="public">
+                公开留言
+            </button>
+            <button class="filter-btn px-5 py-2 rounded-full bg-white/40 text-white font-medium shadow-md transition-all hover:bg-white/60" data-filter="private">
+                🔒 私密留言
+            </button>
+        </div>
+
+        <!-- 留言展示区 -->
+        <div id="messagesContainer" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <!-- 动态插入 -->
+        </div>
+
+        <!-- 空状态 -->
+        <div id="emptyState" class="hidden text-center py-20">
+            <div class="text-8xl mb-4 empty-state">📭</div>
+            <p class="text-white/80 text-xl">还没有留言，来做第一个留言的人吧！</p>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-8 text-white/50 text-sm relative z-10">
+        <p>💜 感谢每一位留下足迹的朋友</p>
+    </footer>
+
+    <script>
+        // 配置
+        const STORAGE_KEY = 'message_wall_data';
+        const ADMIN_PASSWORD = '123456'; // 查看私密留言的密码
+        
+        // 颜色配置
+        const colorMap = {
+            purple: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', badge: 'bg-purple-100 text-purple-600' },
+            blue: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-600' },
+            pink: { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700', badge: 'bg-pink-100 text-pink-600' },
+            green: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'bg-green-100 text-green-600' },
+            orange: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100 text-orange-600' },
+            yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-600' }
+        };
+
+        // 初始化
+        let messages = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        let currentFilter = 'all';
+        let showPrivate = false;
+
+        // DOM 元素
+        const form = document.getElementById('messageForm');
+        const container = document.getElementById('messagesContainer');
+        const emptyState = document.getElementById('emptyState');
+        const msgCount = document.getElementById('msgCount');
+        const charCount = document.getElementById('charCount');
+        const contentInput = document.getElementById('messageContent');
+
+        // 生成背景粒子
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const shapes = ['●', '○', '◆', '◇', '★', '☆'];
+            for (let i = 0; i < 20; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle text-white';
+                p.textContent = shapes[Math.floor(Math.random() * shapes.length)];
+                p.style.left = Math.random() * 100 + '%';
+                p.style.fontSize = (Math.random() * 20 + 10) + 'px';
+                p.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                p.style.animationDelay = (Math.random() * 5) + 's';
+                particlesContainer.appendChild(p);
+            }
+        }
+
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString('zh-CN', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        // 颜色选择器
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.color-btn').forEach(b => {
+                    b.classList.remove('ring-2', 'ring-offset-2', 'ring-purple-400');
+                });
+                btn.classList.add('ring-2', 'ring-offset-2', 'ring-purple-400');
+                document.getElementById('selectedColor').value = btn.dataset.color;
+            });
+        });
+
+        // 字符计数
+        contentInput.addEventListener('input', () => {
+            charCount.textContent = contentInput.value.length;
+        });
+
+        // 滚动进度条
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100;
+            document.getElementById('scrollBar').style.width = scrolled + '%';
+        });
+
+        // 渲染留言
+        function renderMessages() {
+            container.innerHTML = '';
+            
+            let filtered = messages;
+            if (currentFilter === 'public') {
+                filtered = messages.filter(m => !m.isPrivate);
+            } else if (currentFilter === 'private') {
+                filtered = messages.filter(m => m.isPrivate);
+            }
+
+            msgCount.textContent = messages.length;
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            // 按时间倒序
+            filtered.sort((a, b) => b.timestamp - a.timestamp);
+
+            filtered.forEach((msg, index) => {
+                const color = colorMap[msg.color] || colorMap.purple;
+                const date = new Date(msg.timestamp);
+                const timeStr = date.toLocaleString('zh-CN', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                
+                const isPrivate = msg.isPrivate;
+                const privateOverlay = isPrivate && !showPrivate ? `
+                    <div class="absolute inset-0 bg-gray-100/90 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center z-10">
+                        <span class="text-3xl mb-2">🔒</span>
+                        <p class="text-gray-500 text-sm mb-3">这是一条私密留言</p>
+                        <button onclick="unlockPrivate(this)" class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 transition-colors">
+                            输入密码查看
+                        </button>
+                    </div>
+                ` : '';
+
+                const card = document.createElement('div');
+                card.className = `message-card relative ${color.bg} border ${color.border} rounded-2xl p-5 shadow-lg`;
+                card.style.animationDelay = `${index * 0.05}s`;
+                
+                card.innerHTML = `
+                    ${privateOverlay}
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                ${msg.author.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <h3 class="font-bold ${color.text}">${escapeHtml(msg.author)}</h3>
+                                <span class="text-xs text-gray-400">${timeStr}</span>
+                            </div>
+                        </div>
+                        ${isPrivate ? '<span class="text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-500">🔒 私密</span>' : ''}
+                    </div>
+                    <div class="text-gray-700 leading-relaxed whitespace-pre-wrap break-words mb-3">${escapeHtml(msg.content)}</div>
+                    <div class="flex justify-between items-center pt-3 border-t border-gray-200/50">
+                        <span class="text-xs ${color.badge} px-2 py-1 rounded-full">#留言</span>
+                        <button onclick="deleteMessage('${msg.id}')" class="delete-btn text-gray-400 hover:text-red-500 transition-colors p-1" title="删除">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        // 解锁私密留言
+        window.unlockPrivate = function(btn) {
+            const password = prompt('请输入查看密码：');
+            if (password === ADMIN_PASSWORD) {
+                showPrivate = true;
+                renderMessages();
+                // 显示提示
+                const toast = document.createElement('div');
+                toast.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50 animate-bounce';
+                toast.textContent = '✅ 密码正确，已显示所有私密留言';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            } else if (password !== null) {
+                alert('❌ 密码错误');
+            }
+        };
+
+        // 转义HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 提交表单
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const author = document.getElementById('authorName').value.trim();
+            const content = document.getElementById('messageContent').value.trim();
+            const color = document.getElementById('selectedColor').value;
+            const isPrivate = document.getElementById('isPrivate').checked;
+
+            if (!author || !content) return;
+
+            const newMessage = {
+                id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+                author,
+                content,
+                color,
+                isPrivate,
+                timestamp: Date.now()
+            };
+
+            messages.push(newMessage);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+
+            // 重置表单
+            form.reset();
+            charCount.textContent = '0';
+            document.getElementById('selectedColor').value = 'purple';
+            document.querySelectorAll('.color-btn').forEach(b => {
+                b.classList.remove('ring-2', 'ring-offset-2', 'ring-purple-400');
+            });
+            document.querySelector('[data-color="purple"]').classList.add('ring-2', 'ring-offset-2', 'ring-purple-400');
+
+            // 添加成功动画
+            const btn = form.querySelector('button[type="submit"]');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<span>✅</span> 发布成功！';
+            btn.classList.add('bg-green-500');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('bg-green-500');
+            }, 1500);
+
+            renderMessages();
+            
+            // 滚动到顶部查看新留言
+            window.scrollTo({ top: document.getElementById('messagesContainer').offsetTop - 100, behavior: 'smooth' });
+        });
+
+        // 删除留言
+        window.deleteMessage = function(id) {
+            if (confirm('确定要删除这条留言吗？')) {
+                messages = messages.filter(m => m.id !== id);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+                renderMessages();
+            }
+        };
+
+        // 筛选按钮
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => {
+                    b.classList.remove('bg-white/90', 'text-purple-700');
+                    b.classList.add('bg-white/40', 'text-white');
+                });
+                btn.classList.remove('bg-white/40', 'text-white');
+                btn.classList.add('bg-white/90', 'text-purple-700');
+                
+                currentFilter = btn.dataset.filter;
+                renderMessages();
+            });
+        });
+
+        // 初始化
+        createParticles();
+        updateTime();
+        setInterval(updateTime, 60000);
+        renderMessages();
+
+        // 添加一些示例数据（首次访问）
+        if (messages.length === 0) {
+            const demoMessages = [
+                { id: 'demo1', author: '小明', content: '这个留言板做得真好看！👍\n期待你的回复~', color: 'blue', isPrivate: false, timestamp: Date.now() - 86400000 },
+                { id: 'demo2', author: '小红', content: '加油！一切都会越来越好的 💪', color: 'pink', isPrivate: false, timestamp: Date.now() - 172800000 },
+                { id: 'demo3', author: '神秘人', content: '这是一条只有你知道的秘密留言... 🤫', color: 'purple', isPrivate: true, timestamp: Date.now() - 3600000 }
+            ];
+            messages = demoMessages;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+            renderMessages();
+        }
+    </script>
+</body>
+</html>
